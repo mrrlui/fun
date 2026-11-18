@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Function Evaluation Explorer — Step-by-Step Substitution</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-alt: #f1f5f9;
+    --border: #cbd5e1;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+
+    /* Pedagogical Color System */
+    --sub-bg: #dbeafe;
+    --sub-border: #3b82f6;
+    --sub-text: #1e40af;
+
+    --op-bg: #fef3c7;
+    --op-border: #f59e0b;
+    --op-text: #92400e;
+
+    --ans-bg: #dcfce7;
+    --ans-border: #16a34a;
+    --ans-text: #14532d;
+
+    --ghost-color: #94a3b8;
+    --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-math: "Cambria Math", "Latin Modern Math", "STIX Two Math", Georgia, "Times New Roman", serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    background: var(--sub-bg);
+    color: var(--sub-text);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1.5px solid transparent;
+  }
+  .swatch.sub { background: var(--sub-bg); border-color: var(--sub-border); }
+  .swatch.op  { background: var(--op-bg); border-color: var(--op-border); }
+  .swatch.ans { background: var(--ans-bg); border-color: var(--ans-border); }
+
+  main {
+    max-width: 1120px;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+    display: grid;
+    grid-template-columns: 1fr 290px;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  /* Controls Bar */
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr auto;
+    gap: 0.75rem;
+    align-items: end;
+    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .setup-grid { grid-template-columns: 1fr; }
+  }
+
+  label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  select, input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    font-size: 1rem;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-ui);
+  }
+
+  input.math-input {
+    font-family: var(--font-math);
+    font-size: 1.1rem;
+  }
+
+  select:focus, input:focus, button:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 1px;
+    border-color: var(--primary);
+  }
+
+  .custom-row {
+    display: none;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: var(--surface-alt);
+    border-radius: 8px;
+  }
+  .custom-row.visible { display: grid; }
+
+  .error-banner {
+    display: none;
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #f87171;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  .error-banner.visible { display: block; }
+
+  /* Mode Switch & Action Bar */
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  button {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 0.6rem 1.05rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    transition: background 150ms ease, transform 100ms ease, border-color 150ms ease;
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--surface-alt);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  button.primary {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+    font-size: 1.02rem;
+    padding: 0.65rem 1.35rem;
+  }
+
+  button.primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+
+  .toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+    user-select: none;
+  }
+
+  /* Stage & Progress */
+  .stage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .progress-pill {
+    font-size: 0.85rem;
+    font-weight: 700;
